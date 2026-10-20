@@ -1,57 +1,40 @@
 # MoneyPrinterTurbo — Ramiz's Video Studio
 
-A personal setup of [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo), an open-source AI short-video generation project.
+A cloud-deployment wrapper for [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo), the open-source AI short-video generator.
 
-> This repository is a setup/launch companion, not a rewrite or a bundled copy of the upstream source. See upstream for the full application, releases, screenshots, and complete feature list.
+## Deploy the public web app
 
-## What it does
+**Deploy to Render:** [Open Render Blueprint deployment](https://render.com/deploy?repo=https://github.com/RamizUddin404/video-tool-suite)
 
-MoneyPrinterTurbo can generate short videos from a topic or keywords: script, stock footage, voice-over, subtitles, background music, and a rendered video. Upstream offers a Streamlit WebUI, an API, and a CLI.
+The blueprint uses the upstream published Docker image and runs the Streamlit WebUI as a cloud web service. Render will ask you to sign in, review the service plan, and confirm deployment. This repository does not include a prebuilt APK.
 
-- WebUI and API run on a Python server; they are not a standalone Android APK.
-- Python 3.11+ is required; the upstream recommended source setup uses `uv`.
-- Online AI/model, stock-media, and speech providers may require API keys. Edge TTS is available without a key.
-- FFmpeg/media dependencies and memory requirements depend on the chosen workflow.
+- Deployment configuration: [render.yaml](render.yaml)
+- Cloud deployment and security notes: [DEPLOYMENT.md](DEPLOYMENT.md)
+- Upstream project: [harry0703/MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo)
+- Upstream MIT license: [UPSTREAM-LICENSE](UPSTREAM-LICENSE)
 
-## Quick start (Linux/macOS/Termux environment)
+## Features from the upstream project
 
-The upstream project targets desktop/server Linux, macOS, and Windows. Android/Termux is not an officially supported deployment target, so native media dependencies may fail on some phones.
+- Generate short videos from a topic or keywords.
+- AI script generation through configured model providers.
+- Stock footage, voice-over, subtitles, background music, and video rendering.
+- WebUI, API, and CLI (the API and CLI are available in the upstream application; this Render Blueprint exposes the WebUI).
 
-```bash
-pkg update
-pkg install git python ffmpeg rust clang make cmake
-python -m pip install --upgrade pip uv
-git clone https://github.com/harry0703/MoneyPrinterTurbo.git
-cd MoneyPrinterTurbo
-uv python install 3.11
-uv sync --frozen
-uv run streamlit run webui/Main.py --server.address 127.0.0.1 --server.port 8501
-```
+Some model, voice, and media providers require their own API keys. Edge TTS can work without a key. Video generation can consume paid API quota and substantial CPU/RAM.
 
-If the command above fails due to a platform-specific dependency, use a Linux server/PC or the upstream Docker instructions instead. On desktop/server, follow the current upstream README exactly: https://github.com/harry0703/MoneyPrinterTurbo#readme
+## Public deployment: read before configuring keys
 
-Then open `http://127.0.0.1:8501` in the same device's browser.
+The deployed web UI is public. **Do not configure paid API keys or private credentials on a publicly accessible instance unless you have added and tested an access-control layer.** An unknown visitor may be able to submit jobs that consume configured provider quota. Never commit secrets, `config.toml`, or generated videos to this repository.
 
-## API server / CLI
+Render plan availability, persistent disk pricing, and resource limits can change. Review the cost shown by Render before confirming deployment. Video rendering may require a larger instance.
 
-From the upstream repository root:
+## Local development
 
-```bash
-uv run python main.py
-uv run python cli.py --help
-```
+For a full local install, follow the upstream instructions:
+https://github.com/harry0703/MoneyPrinterTurbo#readme
 
-## Configuration
+Python 3.11+ and FFmpeg/media dependencies are required for source deployments. Android/Termux is not an officially supported deployment target and some native dependencies may not work there.
 
-Start the WebUI and enter API keys for the providers you want to use in its settings. Do not commit API keys, `config.toml`, generated videos, or other secrets to GitHub. Keep credentials local.
+## Attribution
 
-## Build / CI
-
-GitHub Actions runs a lightweight Python syntax check and validates the repository setup. The full upstream app has heavy OS/media dependencies; this CI is not a guarantee that video rendering works on Android.
-
-## Upstream and license
-
-- Source: https://github.com/harry0703/MoneyPrinterTurbo
-- License: MIT; upstream copyright and license notices must be retained when redistributing substantial portions.
-- This companion repository is independently maintained and is not affiliated with or endorsed by the upstream author.
-
+This repository is a deployment wrapper, not a fork containing the full upstream source. MoneyPrinterTurbo is maintained by its upstream author and distributed under MIT. Preserve its notices when redistributing substantial portions. See [UPSTREAM-LICENSE](UPSTREAM-LICENSE). This wrapper is not affiliated with or endorsed by the upstream author.
