@@ -1,0 +1,33 @@
+name: Setup validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate README and workflow files
+        run: |
+          test -s README.md
+          grep -q "harry0703/MoneyPrinterTurbo" README.md
+          python - <<'PY'
+          from pathlib import Path
+          readme = Path("README.md").read_text(encoding="utf-8")
+          assert "Quick start" in readme
+          assert "License" in readme
+          print("Repository setup checks passed.")
+          PY
