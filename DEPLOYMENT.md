@@ -23,7 +23,7 @@ Set these environment variables in the host dashboard, never in website source:
 - `REPLICATE_MODEL_VERSION`: selected model version identifier
 - `ALLOWED_ORIGINS`: exact public website origin, e.g. `https://ramizuddin404.github.io`
 
-The selected provider model must accept the input schema sent by the user. Check provider pricing, model licensing, output handling and account limits before enabling requests.
+The selected provider model must accept the input schema sent by the user. The editor can upload video files through the backend to provider file storage, but the selected model must support video inputs. A standard watch-page link may not be accepted as a media URL. Check provider pricing, model licensing, output handling and account limits before enabling requests. Provider-based generation is not guaranteed to be free.
 
 ## 3. Connect the editor
 
