@@ -1,42 +1,31 @@
 # MoneyPrinterTurbo — Ramiz's Video Studio
 
-A public GitHub Pages launchpad and cloud deployment wrapper for [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo), the open-source AI short-video generator.
+A public GitHub Pages website with a browser-based manual video editor plus a deployment path for [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo), the upstream AI short-video generator.
 
-## Public website (GitHub Pages)
+## Website
 
-The static front end is in [index.html](index.html). GitHub Actions deploys it to GitHub Pages when the site files change. After the first successful run, the public URL is normally:
+After GitHub Pages deployment, open: **https://ramizuddin404.github.io/video-tool-suite/**
 
-**https://ramizuddin404.github.io/video-tool-suite/**
+- [Manual video editor](editor.html): local video preview, trim range, 16:9 / 9:16 / 1:1 framing, visual filters, title overlays, SRT subtitles, background music and audio mixing, WebM export.
+- [AI video generator connection](editor.html#ai): configure the URL of the deployed MoneyPrinterTurbo WebUI and open it.
+- [GitHub Pages workflow](.github/workflows/pages.yml): deploys the static website automatically.
 
-If Pages has not been enabled for this repository yet, open **Settings → Pages** and select **GitHub Actions** as the build and deployment source, then run the workflow from the Actions tab.
+The manual editor uses browser Canvas and MediaRecorder. Export is WebM and renders in real time; keep the page open while exporting. Very large files may be slow on phones. Source media is processed in the browser rather than uploaded to this repository.
 
-## Deploy the video engine
+## Deploy the AI video engine
 
-GitHub Pages only hosts static files; it cannot run Python, FFmpeg, the Streamlit WebUI, or video-rendering jobs. The backend blueprint uses the upstream published Docker image on Render:
+GitHub Pages cannot run Python, FFmpeg or long-running AI video jobs. Deploy the upstream container separately using the [Render Blueprint](render.yaml):
 
 **[Deploy the public backend to Render](https://render.com/deploy?repo=https://github.com/RamizUddin404/video-tool-suite)**
 
-Review the service plan, persistent disk, region and costs before confirming deployment. Once the backend is live, paste its HTTPS URL into the GitHub Pages site and select **Open hosted studio**.
+Review the service plan, disk, region and pricing before confirming. After deployment, copy its HTTPS URL into the editor's AI video generator panel.
 
-- Website: [index.html](index.html)
-- Backend deployment configuration: [render.yaml](render.yaml)
-- Deployment and security notes: [DEPLOYMENT.md](DEPLOYMENT.md)
-- Upstream project: [harry0703/MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo)
-- Upstream MIT license: [UPSTREAM-LICENSE](UPSTREAM-LICENSE)
+**Security:** do not configure paid API keys or private credentials on a publicly accessible backend unless you have added and tested access control. Visitors may otherwise consume provider quota. Never commit secrets or generated videos.
 
-## Features from the upstream project
+## Upstream features
 
-- Generate short videos from a topic or keywords.
-- AI script generation through configured model providers.
-- Stock footage, voice-over, subtitles, background music, and video rendering.
-- WebUI, API, and CLI are available in the upstream application; the Render Blueprint is intended to expose the WebUI.
-
-Some model, voice, and media providers require API keys. Edge TTS may work without a key. Video generation can consume paid API quota and substantial CPU/RAM.
-
-## Public deployment security
-
-**Do not configure paid API keys or private credentials on a publicly accessible instance unless you have added and tested access control.** Unknown visitors may submit jobs that consume provider quota. Never commit secrets, config files, or generated videos to this repository.
+MoneyPrinterTurbo supports topic/keyword-based short-video generation through its configured AI and media providers. Some providers require API keys and rendering can consume paid quota and CPU/RAM. The backend's available AI generation features depend on its own configuration.
 
 ## Attribution and license
 
-This repository is a deployment wrapper and static launchpad, not a fork containing the full upstream source. MoneyPrinterTurbo is maintained by its upstream author and distributed under MIT. Preserve its copyright and license notices when redistributing substantial portions. See [UPSTREAM-LICENSE](UPSTREAM-LICENSE). This repository is not affiliated with or endorsed by the upstream author.
+MoneyPrinterTurbo is maintained by its upstream author and distributed under MIT. This repository is a wrapper plus a separate browser editor; it is not an official upstream fork. Preserve upstream notices when redistributing upstream code. See [UPSTREAM-LICENSE](UPSTREAM-LICENSE). This repository is not affiliated with or endorsed by the upstream author.
