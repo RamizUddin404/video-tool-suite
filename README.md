@@ -64,4 +64,4 @@ GitHub Pages serves static files only; it does not run the FastAPI backend. Depl
 
 ## License
 
-Original code in this repository is provided under the MIT License in `LICENSE`. Third-party packages and hosted model providers retain their own licenses and terms. No upstream MoneyPrinterTurbo application code is required by this project.
+Original code in this repository is provided under the MIT License in `LICENSE`. Third-party packages and hosted model providers retain their own licenses and terms. The application code is maintained independently.
