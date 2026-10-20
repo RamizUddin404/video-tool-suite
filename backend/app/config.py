@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     hf_provider: str = "fal-ai"
     allowed_origins: str = "https://ramizuddin404.github.io,http://localhost:8000,http://127.0.0.1:8000"
     hf_request_timeout_seconds: int = 1800
+    public_base_url: str = ""
     output_dir: str = "/tmp/linktoon-outputs"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
