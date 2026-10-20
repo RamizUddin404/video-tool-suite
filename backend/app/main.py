@@ -1,9 +1,12 @@
 from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
+from pathlib import Path
+import os
+import tempfile
 from typing import Any
 from uuid import uuid4
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .provider import ReplicateProvider, first_output_url
@@ -27,6 +30,53 @@ async def root() -> dict[str, str]:
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "provider_configured": str(bool(settings.replicate_api_token and settings.replicate_model_version)).lower()}
+
+@app.post("/api/v1/source/upload")
+async def upload_source_video(file: UploadFile = File(...)) -> dict[str, Any]:
+    """Upload a user-selected video to the configured provider's temporary file storage."""
+    if not settings.replicate_api_token or not settings.replicate_model_version:
+        raise HTTPException(status_code=503, detail="Provider file upload requires REPLICATE_API_TOKEN and REPLICATE_MODEL_VERSION on the backend host.")
+    if not (file.content_type or "").lower().startswith("video/"):
+        raise HTTPException(status_code=415, detail="Upload a video file with a recognized video content type.")
+    safe_name = Path(file.filename or "source-video").name[:180]
+    suffix = Path(safe_name).suffix[:12]
+    temp_path = None
+    total = 0
+    try:
+        with tempfile.NamedTemporaryFile(prefix="ramiz-source-", suffix=suffix, delete=False) as temp:
+            temp_path = temp.name
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > 100 * 1024 * 1024:
+                    raise HTTPException(status_code=413, detail="Video files must be 100 MB or smaller.")
+                temp.write(chunk)
+        if total == 0:
+            raise HTTPException(status_code=400, detail="The uploaded video file is empty.")
+        with open(temp_path, "rb") as stream:
+            async with httpx.AsyncClient(timeout=180) as client:
+                response = await client.post(
+                    "https://api.replicate.com/v1/files",
+                    headers={"Authorization": f"Bearer {settings.replicate_api_token}"},
+                    files={"content": (safe_name, stream, file.content_type or "application/octet-stream")},
+                )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=502, detail=f"Provider upload failed (HTTP {response.status_code}): {response.text[:600]}")
+        result = response.json()
+        file_url = (result.get("urls") or {}).get("get")
+        if not file_url:
+            raise HTTPException(status_code=502, detail="Provider accepted the upload but did not return a file URL.")
+        return {"file_id": result.get("id"), "file_url": file_url, "filename": safe_name, "size": total, "expires_at": result.get("expires_at"), "note": "The selected model must accept this uploaded file URL as an input."}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not upload source video: {str(exc)[:400]}")
+    finally:
+        await file.close()
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)
 
 @app.post("/api/v1/jobs", status_code=202)
 async def create_job(body: CreateJobRequest) -> dict[str, Any]:
