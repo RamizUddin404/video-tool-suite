@@ -1,31 +1,34 @@
-# Cloud deployment
+# Deployment guide — Ramiz Studio
 
-## Public website and manual editor
+## 1. Static website
 
-GitHub Pages serves the static website and [browser-based editor](editor.html). The editor processes local video in the browser and can trim by start/end time, set 16:9 / 9:16 / 1:1 framing, apply visual filters, overlay text, burn in SRT subtitles, mix background music, and export a WebM recording.
+1. Open the repository's **Settings → Pages**.
+2. Select **GitHub Actions** as the build and deployment source.
+3. Push to `main`; the workflow validates the site and deploys it.
+4. Check the Actions tab for the real workflow result before sharing the URL.
 
-Rendering uses browser Canvas and MediaRecorder in real time. Keep the page open during export. Browser support and device performance vary; the editor does not currently export MP4.
+GitHub Pages hosts only the HTML/CSS/JavaScript frontend. It cannot run Python API endpoints.
 
-## Deploy the AI video engine on Render
+## 2. FastAPI backend
 
-1. Sign in to Render and open the Blueprint deploy flow.
-2. Choose this repository: https://github.com/RamizUddin404/video-tool-suite
-3. Review the `render.yaml` plan, disk, and region, then create the service.
-4. Wait for the upstream image to start; open the public `onrender.com` URL.
-5. Paste that HTTPS URL into the AI video generator panel in [editor.html](editor.html).
-6. Configure provider keys only after reviewing the security notes below.
+Deploy the `backend/` directory to a Python host that supports ASGI. Install `backend/requirements.txt` and use a start command equivalent to:
 
-GitHub Pages cannot run Python, FFmpeg, or long-running AI video jobs. The Render Blueprint uses the upstream published MoneyPrinterTurbo container image and exposes its Streamlit WebUI on port 8501. It provisions a persistent disk for generated task files.
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
 
-## Public-access security
+Set environment variables in the host dashboard, never in the website source:
 
-This service is configured as a public web service. Do not enter personal, shared, or paid API credentials into a public instance unless you have separately protected access to it. Anyone who can reach the UI may be able to submit generation jobs and consume configured provider quota. Do not put secrets in this repository or GitHub Actions logs.
+- `REPLICATE_API_TOKEN`: provider token
+- `REPLICATE_MODEL_VERSION`: selected model version identifier
+- `ALLOWED_ORIGINS`: the exact public Pages origin, for example `https://ramizuddin404.github.io`
 
-Render's plan and disk may incur charges. Review the provider's billing page before confirming deployment. Video rendering is resource-intensive; a larger instance may be required.
+The selected provider model must accept the input schema sent by the user. Check provider pricing, model licensing, output handling and account limits before enabling public requests.
 
-## Upstream source and license
+## 3. Connect the editor
 
-AI generation is provided by the upstream project:
-https://github.com/harry0703/MoneyPrinterTurbo
+Open `editor.html`, enter the deployed backend's base URL, and use the AI generation panel. The UI calls `POST /api/v1/jobs` and polls `GET /api/v1/jobs/{job_id}`. A working generation requires valid backend configuration. If the backend is not deployed or configured, generation will fail visibly; the UI must not claim it succeeded.
 
-Upstream license: MIT, copyright (c) 2024 Harry. See [UPSTREAM-LICENSE](UPSTREAM-LICENSE). This deployment wrapper and separate browser editor are not affiliated with or endorsed by the upstream author.
+## 4. Production hardening required
+
+The current backend scaffold uses in-memory job state and does not provide user accounts, a durable queue, quotas or persistent media storage. Before public production, add authentication, rate limiting, durable job storage/queue, provider cost limits, job cancellation, secure output delivery, retention/deletion policies, monitoring and abuse controls. Do not run a public unauthenticated endpoint with an unrestricted paid provider token.
