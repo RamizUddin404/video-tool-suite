@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import re
+import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from huggingface_hub import InferenceClient
@@ -85,12 +86,24 @@ def fetch_caption_context(raw_url: str) -> str:
     return " ".join(lines)
 
 
+def require_client_key(request: Request) -> None:
+    expected = settings.app_api_key
+    if not expected:
+        raise HTTPException(status_code=503, detail="Backend access is locked until APP_API_KEY is configured as a secret on the Space.")
+    supplied = request.headers.get("authorization", "")
+    if supplied.lower().startswith("bearer "):
+        supplied = supplied[7:].strip()
+    else:
+        supplied = ""
+    if not secrets.compare_digest(supplied, expected):
+        raise HTTPException(status_code=401, detail="Invalid backend access key.")
+
 def generate_video_bytes(prompt: str, model: str) -> bytes:
     if not settings.hf_token:
         raise RuntimeError("HF_TOKEN is not configured on the backend host.")
     client = InferenceClient(
         provider=settings.hf_provider,
-        token=settings.hf_token,
+        api_key=settings.hf_token,
         timeout=settings.hf_request_timeout_seconds,
     )
     # Inference Providers text_to_video returns the generated video as bytes.
@@ -113,12 +126,17 @@ async def health() -> dict[str, str]:
 
 
 @app.post("/api/v1/jobs", status_code=202)
-async def create_job(body: CreateJobRequest) -> dict[str, Any]:
+async def create_job(body: CreateJobRequest, request: Request) -> dict[str, Any]:
+    require_client_key(request)
+    if sum(1 for j in jobs.values() if j.get("status") in {"queued", "processing"}) >= 1:
+        raise HTTPException(status_code=429, detail="Another video is already being generated. Wait for it to finish before submitting a new job.")
     if not settings.hf_token:
         raise HTTPException(status_code=503, detail="Hugging Face is not configured. Add HF_TOKEN as a secret on the backend host.")
-    model = (body.model or settings.hf_video_model).strip()
+    model = settings.hf_video_model.strip()
     if not model or "/" not in model:
-        raise HTTPException(status_code=422, detail="Set a valid Hugging Face text-to-video model ID.")
+        raise HTTPException(status_code=422, detail="Set HF_VIDEO_MODEL to a valid Hugging Face text-to-video model ID.")
+    if body.model and body.model.strip() != model:
+        raise HTTPException(status_code=422, detail="Model selection is controlled by the backend owner. Set HF_VIDEO_MODEL in Space settings.")
     if body.source_mode == "url" and not body.source_url:
         raise HTTPException(status_code=422, detail="Add a YouTube URL or switch to Topic only.")
     job_id = str(uuid4())
@@ -168,7 +186,9 @@ async def run_job(job_id: str) -> None:
         job["status"] = "succeeded"
     except Exception as exc:
         message = str(exc)
-        if "HF_TOKEN" not in message and "caption" not in message.lower() and "youtube" not in message.lower():
+        if job.get("source_mode") == "url":
+            message = f"Could not process the source captions or generate the cartoon: {message}"
+        elif "HF_TOKEN" not in message:
             message = f"Hugging Face generation failed: {message}"
         job["status"] = "failed"
         job["error"] = message[:1200]
@@ -177,7 +197,8 @@ async def run_job(job_id: str) -> None:
 
 
 @app.get("/api/v1/jobs/{job_id}")
-async def get_job(job_id: str) -> dict[str, Any]:
+async def get_job(job_id: str, request: Request) -> dict[str, Any]:
+    require_client_key(request)
     job = jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found. The in-memory job list resets when this backend restarts.")
