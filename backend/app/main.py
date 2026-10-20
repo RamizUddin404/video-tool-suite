@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import asyncio
 import re
 from datetime import datetime, timezone
@@ -9,15 +10,18 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from huggingface_hub import InferenceClient
 from youtube_transcript_api import YouTubeTranscriptApi
 
 from .config import settings
-from .provider import HuggingFaceVideoProvider, ProviderConfigurationError
 from .schemas import CreateJobRequest
 
-settings.outputs_path
-app = FastAPI(title="LinkToon Studio API", version="1.0.0", description="Self-managed FastAPI backend using Hugging Face Inference Providers.")
+app = FastAPI(
+    title="LinkToon Studio API",
+    version="0.2.0",
+    description="Self-managed LinkToon backend using Hugging Face Inference Providers.",
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins,
@@ -25,107 +29,171 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )
-app.mount("/outputs", StaticFiles(directory=str(settings.outputs_path)), name="outputs")
-provider = HuggingFaceVideoProvider()
+
 jobs: dict[str, dict[str, Any]] = {}
+VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
+
 
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
-def public_job(job: dict[str, Any]) -> dict[str, Any]:
-    return {key: job.get(key) for key in ("id", "status", "prompt", "output_url", "error", "created_at", "updated_at")}
 
-def youtube_id(url: str) -> str | None:
-    parsed = urlparse(url)
-    host = parsed.netloc.lower().split(":")[0]
-    if host in {"youtu.be", "www.youtu.be"}:
-        return parsed.path.strip("/").split("/")[0] or None
-    if host.endswith("youtube.com") or host == "youtube-nocookie.com":
-        if parsed.path == "/watch":
-            return parse_qs(parsed.query).get("v", [None])[0]
+def public_job(job: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: job.get(key)
+        for key in ("id", "status", "prompt", "output_url", "error", "created_at", "updated_at", "model")
+    }
+
+
+def extract_youtube_id(raw_url: str) -> str:
+    parsed = urlparse(raw_url)
+    host = (parsed.hostname or "").lower()
+    allowed_hosts = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "youtube-nocookie.com", "www.youtube-nocookie.com"}
+    if host not in allowed_hosts:
+        raise ValueError("For link mode, provide a YouTube link with public captions, or switch to Topic only and describe the source. Direct video URLs are not video inputs for text-to-video models.")
+    video_id = ""
+    if host == "youtu.be":
+        video_id = parsed.path.strip("/").split("/")[0]
+    elif parsed.path == "/watch":
+        video_id = parse_qs(parsed.query).get("v", [""])[0]
+    else:
         match = re.match(r"^/(?:shorts|embed|live)/([^/?]+)", parsed.path)
         if match:
-            return match.group(1)
-    return None
+            video_id = match.group(1)
+    if not VIDEO_ID_RE.fullmatch(video_id):
+        raise ValueError("Could not identify a valid YouTube video ID from that URL.")
+    return video_id
 
-def source_context(url: str) -> str:
-    video_id = youtube_id(url)
-    if not video_id:
-        raise ValueError("For link-based topic extraction, provide a YouTube link with accessible captions. Other URL types are not downloaded by this backend.")
-    try:
-        transcript = YouTubeTranscriptApi().fetch(video_id)
-        text = " ".join(str(item.text) for item in transcript)
-    except Exception as exc:
-        raise ValueError("Could not read captions for this YouTube video. Check that captions are available, then enter the topic manually. Details: " + str(exc)[:250]) from exc
-    text = re.sub(r"\s+", " ", text).strip()
-    if not text:
-        raise ValueError("The video captions were empty. Enter the topic manually.")
-    return text[:12000]
+
+def fetch_caption_context(raw_url: str) -> str:
+    video_id = extract_youtube_id(raw_url)
+    transcript = YouTubeTranscriptApi().fetch(video_id, languages=["bn", "en", "hi"])
+    lines: list[str] = []
+    total = 0
+    for snippet in transcript.snippets:
+        text = " ".join(str(snippet.text).split())
+        if not text:
+            continue
+        remaining = 7000 - total
+        if remaining <= 0:
+            break
+        text = text[:remaining]
+        lines.append(text)
+        total += len(text)
+    if not lines:
+        raise ValueError("No usable captions were found. Enter a topic or paste the video transcript manually.")
+    return " ".join(lines)
+
+
+def generate_video_bytes(prompt: str, model: str) -> bytes:
+    if not settings.hf_token:
+        raise RuntimeError("HF_TOKEN is not configured on the backend host.")
+    client = InferenceClient(
+        provider=settings.hf_provider,
+        api_key=settings.hf_token,
+        timeout=settings.hf_request_timeout_seconds,
+    )
+    # Inference Providers text_to_video returns the generated video as bytes.
+    return client.text_to_video(prompt, model=model)
+
 
 @app.get("/")
 async def root() -> dict[str, str]:
     return {"service": "LinkToon Studio API", "docs": "/docs", "health": "/health"}
 
+
 @app.get("/health")
-async def health() -> dict[str, Any]:
+async def health() -> dict[str, str]:
     return {
         "status": "ok",
         "provider": "huggingface-inference-providers",
-        "provider_configured": bool(settings.hf_token),
-        "default_model": settings.hf_video_model,
-        "note": "Video generation also requires the selected model/provider to support text-to-video for your account."
+        "provider_configured": str(bool(settings.hf_token)).lower(),
+        "model": settings.hf_video_model,
     }
+
 
 @app.post("/api/v1/jobs", status_code=202)
 async def create_job(body: CreateJobRequest) -> dict[str, Any]:
     if not settings.hf_token:
-        raise HTTPException(status_code=503, detail="Hugging Face token missing. Set HF_TOKEN as a secret on the backend host.")
-    prompt = body.prompt
-    if body.source_mode == "url":
-        if not body.source_url:
-            raise HTTPException(status_code=400, detail="source_url is required when source_mode is url.")
-        try:
-            transcript = await asyncio.to_thread(source_context, str(body.source_url))
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        prompt += "\n\nREFERENCE VIDEO CAPTION CONTEXT (adapt the topic; do not copy exact scenes/dialogue):\n" + transcript
+        raise HTTPException(status_code=503, detail="Hugging Face is not configured. Add HF_TOKEN as a secret on the backend host.")
+    model = (body.model or settings.hf_video_model).strip()
+    if not model or "/" not in model:
+        raise HTTPException(status_code=422, detail="Set a valid Hugging Face text-to-video model ID.")
+    if body.source_mode == "url" and not body.source_url:
+        raise HTTPException(status_code=422, detail="Add a YouTube URL or switch to Topic only.")
     job_id = str(uuid4())
     job = {
-        "id": job_id, "status": "queued", "prompt": prompt,
-        "output_url": None, "error": None, "created_at": now(),
-        "updated_at": now(), "model": body.model or settings.hf_video_model
+        "id": job_id,
+        "status": "queued",
+        "prompt": body.prompt,
+        "source_url": str(body.source_url) if body.source_url else None,
+        "source_mode": body.source_mode,
+        "model": model,
+        "output_path": None,
+        "output_url": None,
+        "error": None,
+        "created_at": now(),
+        "updated_at": now(),
     }
     jobs[job_id] = job
-    asyncio.create_task(run_job(job_id, prompt, body.model, body.inputs))
+    asyncio.create_task(run_job(job_id))
     return public_job(job)
 
-async def run_job(job_id: str, prompt: str, model: str | None, inputs: dict[str, Any]) -> None:
+
+async def run_job(job_id: str) -> None:
     job = jobs.get(job_id)
     if not job:
         return
-    job["status"] = "processing"
-    job["updated_at"] = now()
     try:
-        video_bytes = await asyncio.wait_for(
-            asyncio.to_thread(provider.create_video, prompt, model, inputs),
-            timeout=settings.hf_request_timeout_seconds
-        )
+        job["status"] = "processing"
+        job["updated_at"] = now()
+        prompt = job["prompt"]
+        if job["source_mode"] == "url":
+            caption_text = await asyncio.to_thread(fetch_caption_context, job["source_url"])
+            prompt = (
+                prompt
+                + "\n\nSOURCE TOPIC CONTEXT FROM PUBLIC YOUTUBE CAPTIONS (reference only):\n"
+                + caption_text
+                + "\n\nAdapt the core subject and key ideas into a new original cartoon story. Do not copy exact dialogue, scenes, footage, logos, or protected characters."
+            )
+        video_bytes = await asyncio.to_thread(generate_video_bytes, prompt, job["model"])
         if not video_bytes:
             raise RuntimeError("Hugging Face returned an empty video.")
+        if len(video_bytes) > 250 * 1024 * 1024:
+            raise RuntimeError("Generated video exceeded the 250 MB output limit.")
         output_path = settings.outputs_path / f"{job_id}.mp4"
-        output_path.write_bytes(video_bytes)
-        public_base = settings.public_base_url.rstrip("/")
-        job["output_url"] = f"{public_base}/outputs/{job_id}.mp4" if public_base else f"/outputs/{job_id}.mp4"
+        await asyncio.to_thread(output_path.write_bytes, video_bytes)
+        job["output_path"] = str(output_path)
+        job["output_url"] = f"/api/v1/jobs/{job_id}/output"
         job["status"] = "succeeded"
-    except (ProviderConfigurationError, Exception) as exc:
+    except Exception as exc:
+        message = str(exc)
+        if "HF_TOKEN" not in message and "caption" not in message.lower() and "youtube" not in message.lower():
+            message = f"Hugging Face generation failed: {message}"
         job["status"] = "failed"
-        job["error"] = str(exc)[:1200]
+        job["error"] = message[:1200]
     finally:
         job["updated_at"] = now()
+
 
 @app.get("/api/v1/jobs/{job_id}")
 async def get_job(job_id: str) -> dict[str, Any]:
     job = jobs.get(job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found. Development backend stores jobs in memory; a restart clears job history.")
+        raise HTTPException(status_code=404, detail="Job not found. The in-memory job list resets when this backend restarts.")
     return public_job(job)
+
+
+@app.get("/api/v1/jobs/{job_id}/output")
+async def get_output(job_id: str) -> FileResponse:
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    output_path = job.get("output_path")
+    if job.get("status") != "succeeded" or not output_path or not Path(output_path).is_file():
+        raise HTTPException(status_code=404, detail="The generated video is not available yet.")
+    return FileResponse(
+        output_path,
+        media_type="video/mp4",
+        filename=f"linktoon-{job_id}.mp4",
+    )
