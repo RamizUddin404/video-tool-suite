@@ -3,6 +3,7 @@ import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 import os
+import httpx
 import tempfile
 from typing import Any
 from uuid import uuid4
