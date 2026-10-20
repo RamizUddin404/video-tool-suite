@@ -1,0 +1,16 @@
+# Render Blueprint for the upstream MoneyPrinterTurbo WebUI.
+# Public URL; no API keys are bundled. Anyone with the URL can reach the UI.
+# Review access/security before adding any paid provider credentials.
+services:
+  - type: web
+    name: ramiz-video-studio
+    runtime: image
+    image:
+      url: ghcr.io/harry0703/moneyprinterturbo:latest
+    plan: starter
+    region: singapore
+    healthCheckPath: /
+    disk:
+      name: video-studio-storage
+      mountPath: /MoneyPrinterTurbo/storage
+      sizeGB: 10
