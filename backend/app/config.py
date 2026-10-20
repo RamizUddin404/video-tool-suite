@@ -3,16 +3,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # Secret. Configure HF_TOKEN on your backend host / Hugging Face Space.
-    hf_token: str = ""
+    # Keep both secrets in backend host settings, never in browser code.
+    openrouter_api_key: str = ""
     app_api_key: str = ""
-    # Official Hugging Face model ID; change only to a text-to-video model supported by the chosen provider.
-    hf_video_model: str = "Wan-AI/Wan2.2-TI2V-5B"
-    # Inference Providers provider name. The video model list is provider-dependent.
-    hf_provider: str = "fal-ai"
+    openrouter_video_model: str = "google/veo-3.1"
     allowed_origins: str = "https://ramizuddin404.github.io,http://localhost:8000,http://127.0.0.1:8000"
-    hf_request_timeout_seconds: int = 1800
-    public_base_url: str = ""
+    request_timeout_seconds: int = 1800
     output_dir: str = "/tmp/linktoon-outputs"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
