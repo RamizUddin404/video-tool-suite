@@ -1,12 +1,12 @@
 # Ramiz Studio
 
-An independent personal video studio by **RamizUddin404**. The website and interface are original project code; this repository does not use MoneyPrinterTurbo as an application dependency.
+An independent personal video studio by **RamizUddin404**. The website and interface are original project code, maintained independently.
 
 ## Project structure
 
 - `index.html` — responsive, classic dark-and-gold landing page with CSS 3D motion.
 - `editor.html` — browser-based local editor and AI-job submission interface.
-- `backend/` — FastAPI service with job validation, provider adapter boundary, and status polling.
+- `backend/` — FastAPI service with bounded video uploads, provider adapter boundary, job validation, and status polling.
 - `.github/workflows/pages.yml` — validates and deploys the static website to GitHub Pages.
 
 ## Current feature status
@@ -42,13 +42,15 @@ Open `http://127.0.0.1:8000/health` and `http://127.0.0.1:8000/docs`.
 
 ### Configure an AI provider
 
-The initial adapter targets the Replicate predictions API. Set these **on the backend host only**:
+The initial adapter targets the Replicate predictions and file-upload APIs. Set these **on the backend host only**:
 
 - `REPLICATE_API_TOKEN`
 - `REPLICATE_MODEL_VERSION` — a model version hash supported by your account
 - `ALLOWED_ORIGINS` — comma-separated exact origins allowed to call the API
 
-The model's input schema varies. Submit a JSON `inputs` object matching the selected model's documented schema. Without valid credentials and a model version, generation deliberately returns a clear configuration error; it does not fake a successful video.
+The model's input schema varies. Submit a JSON `inputs` object matching the selected model's documented schema. The editor can upload a video to the provider's temporary file storage and place its returned URL in the chosen model input field. A normal watch-page URL may not work; many models require a direct media URL or a supported uploaded-file URL. Without valid credentials and a model version, generation deliberately returns a clear configuration error; it does not fake a successful video.
+
+**Cost and licensing:** the website code is free to run, but provider inference and hosting may cost money and are not guaranteed free. Do not describe every generated result as copyright-free. Use material you own, public-domain media, or assets whose licenses explicitly permit your intended use; retain required attribution.
 
 The first implementation keeps job state in process memory and polls the provider. It is suitable as a development scaffold, not a multi-worker production deployment. Add durable storage, a task queue, authentication, rate limits, quota controls, retention policy and output-file handling before public launch.
 
