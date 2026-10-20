@@ -1,15 +1,26 @@
 # MoneyPrinterTurbo — Ramiz's Video Studio
 
-A cloud-deployment wrapper for [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo), the open-source AI short-video generator.
+A public GitHub Pages launchpad and cloud deployment wrapper for [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo), the open-source AI short-video generator.
 
-## Deploy the public web app
+## Public website (GitHub Pages)
 
-**Deploy to Render:** [Open Render Blueprint deployment](https://render.com/deploy?repo=https://github.com/RamizUddin404/video-tool-suite)
+The static front end is in [index.html](index.html). GitHub Actions deploys it to GitHub Pages when the site files change. After the first successful run, the public URL is normally:
 
-The blueprint uses the upstream published Docker image and runs the Streamlit WebUI as a cloud web service. Render will ask you to sign in, review the service plan, and confirm deployment. This repository does not include a prebuilt APK.
+**https://ramizuddin404.github.io/video-tool-suite/**
 
-- Deployment configuration: [render.yaml](render.yaml)
-- Cloud deployment and security notes: [DEPLOYMENT.md](DEPLOYMENT.md)
+If Pages has not been enabled for this repository yet, open **Settings → Pages** and select **GitHub Actions** as the build and deployment source, then run the workflow from the Actions tab.
+
+## Deploy the video engine
+
+GitHub Pages only hosts static files; it cannot run Python, FFmpeg, the Streamlit WebUI, or video-rendering jobs. The backend blueprint uses the upstream published Docker image on Render:
+
+**[Deploy the public backend to Render](https://render.com/deploy?repo=https://github.com/RamizUddin404/video-tool-suite)**
+
+Review the service plan, persistent disk, region and costs before confirming deployment. Once the backend is live, paste its HTTPS URL into the GitHub Pages site and select **Open hosted studio**.
+
+- Website: [index.html](index.html)
+- Backend deployment configuration: [render.yaml](render.yaml)
+- Deployment and security notes: [DEPLOYMENT.md](DEPLOYMENT.md)
 - Upstream project: [harry0703/MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo)
 - Upstream MIT license: [UPSTREAM-LICENSE](UPSTREAM-LICENSE)
 
@@ -18,23 +29,14 @@ The blueprint uses the upstream published Docker image and runs the Streamlit We
 - Generate short videos from a topic or keywords.
 - AI script generation through configured model providers.
 - Stock footage, voice-over, subtitles, background music, and video rendering.
-- WebUI, API, and CLI (the API and CLI are available in the upstream application; this Render Blueprint exposes the WebUI).
+- WebUI, API, and CLI are available in the upstream application; the Render Blueprint is intended to expose the WebUI.
 
-Some model, voice, and media providers require their own API keys. Edge TTS can work without a key. Video generation can consume paid API quota and substantial CPU/RAM.
+Some model, voice, and media providers require API keys. Edge TTS may work without a key. Video generation can consume paid API quota and substantial CPU/RAM.
 
-## Public deployment: read before configuring keys
+## Public deployment security
 
-The deployed web UI is public. **Do not configure paid API keys or private credentials on a publicly accessible instance unless you have added and tested an access-control layer.** An unknown visitor may be able to submit jobs that consume configured provider quota. Never commit secrets, `config.toml`, or generated videos to this repository.
+**Do not configure paid API keys or private credentials on a publicly accessible instance unless you have added and tested access control.** Unknown visitors may submit jobs that consume provider quota. Never commit secrets, config files, or generated videos to this repository.
 
-Render plan availability, persistent disk pricing, and resource limits can change. Review the cost shown by Render before confirming deployment. Video rendering may require a larger instance.
+## Attribution and license
 
-## Local development
-
-For a full local install, follow the upstream instructions:
-https://github.com/harry0703/MoneyPrinterTurbo#readme
-
-Python 3.11+ and FFmpeg/media dependencies are required for source deployments. Android/Termux is not an officially supported deployment target and some native dependencies may not work there.
-
-## Attribution
-
-This repository is a deployment wrapper, not a fork containing the full upstream source. MoneyPrinterTurbo is maintained by its upstream author and distributed under MIT. Preserve its notices when redistributing substantial portions. See [UPSTREAM-LICENSE](UPSTREAM-LICENSE). This wrapper is not affiliated with or endorsed by the upstream author.
+This repository is a deployment wrapper and static launchpad, not a fork containing the full upstream source. MoneyPrinterTurbo is maintained by its upstream author and distributed under MIT. Preserve its copyright and license notices when redistributing substantial portions. See [UPSTREAM-LICENSE](UPSTREAM-LICENSE). This repository is not affiliated with or endorsed by the upstream author.
