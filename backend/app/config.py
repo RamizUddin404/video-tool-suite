@@ -1,15 +1,28 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
-    replicate_api_token: str = ""
-    replicate_model_version: str = ""
-    allowed_origins: str = "http://localhost:8000,http://127.0.0.1:8000"
-    provider_poll_seconds: float = 3.0
-    job_timeout_seconds: int = 1800
+    # Secret. Configure HF_TOKEN on your backend host / Hugging Face Space.
+    hf_token: str = ""
+    # Official Hugging Face model ID; change only to a text-to-video model supported by the chosen provider.
+    hf_video_model: str = "Wan-AI/Wan2.2-TI2V-5B"
+    # Inference Providers provider name. The video model list is provider-dependent.
+    hf_provider: str = "fal-ai"
+    allowed_origins: str = "https://ramizuddin404.github.io,http://localhost:8000,http://127.0.0.1:8000"
+    hf_request_timeout_seconds: int = 1800
+    output_dir: str = "/tmp/linktoon-outputs"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
     @property
     def origins(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
+    @property
+    def outputs_path(self) -> Path:
+        path = Path(self.output_dir)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
 
 settings = Settings()
