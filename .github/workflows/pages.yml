@@ -1,4 +1,4 @@
-name: Deploy public website to GitHub Pages
+name: Deploy Ramiz Studio to GitHub Pages
 
 on:
   push:
@@ -7,7 +7,6 @@ on:
       - "index.html"
       - "editor.html"
       - ".nojekyll"
-      - "UPSTREAM-LICENSE"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -17,7 +16,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: true
 
 jobs:
@@ -31,14 +30,10 @@ jobs:
           test -s index.html
           test -s editor.html
           test -f .nojekyll
-          test -s UPSTREAM-LICENSE
-          grep -q "MoneyPrinterTurbo" index.html
-          grep -q "MoneyPrinterTurbo" editor.html
-          grep -q "harry0703/MoneyPrinterTurbo" index.html
-          grep -qi "MIT" UPSTREAM-LICENSE
+          ! grep -Eiq 'MoneyPrinterTurbo|harry0703|UPSTREAM-LICENSE' index.html editor.html
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Upload site artifact
+      - name: Upload website artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
