@@ -1,31 +1,65 @@
-# MoneyPrinterTurbo — Ramiz's Video Studio
+# Ramiz Studio
 
-A public GitHub Pages website with a browser-based manual video editor plus a deployment path for [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo), the upstream AI short-video generator.
+An independent personal video studio by **RamizUddin404**. The website and interface are original project code; this repository does not use MoneyPrinterTurbo as an application dependency.
 
-## Website
+## Project structure
 
-After GitHub Pages deployment, open: **https://ramizuddin404.github.io/video-tool-suite/**
+- `index.html` — responsive, classic dark-and-gold landing page with CSS 3D motion.
+- `editor.html` — browser-based local editor and AI-job submission interface.
+- `backend/` — FastAPI service with job validation, provider adapter boundary, and status polling.
+- `.github/workflows/pages.yml` — validates and deploys the static website to GitHub Pages.
 
-- [Manual video editor](editor.html): local video preview, trim range, 16:9 / 9:16 / 1:1 framing, visual filters, title overlays, SRT subtitles, background music and audio mixing, WebM export.
-- [AI video generator connection](editor.html#ai): configure the URL of the deployed MoneyPrinterTurbo WebUI and open it.
-- [GitHub Pages workflow](.github/workflows/pages.yml): deploys the static website automatically.
+## Current feature status
 
-The manual editor uses browser Canvas and MediaRecorder. Export is WebM and renders in real time; keep the page open while exporting. Very large files may be slow on phones. Source media is processed in the browser rather than uploaded to this repository.
+| Feature | Status |
+|---|---|
+| Homepage and responsive 3D styling | Implemented in HTML/CSS |
+| Local video preview and basic editing/export | Browser-dependent; test in a modern browser |
+| AI job API endpoints | Implemented as backend scaffolding |
+| Actual AI generation | **Requires a configured provider model, API token, backend deployment and provider-specific inputs** |
+| Durable job queue and multi-user production auth | Not included yet |
+| MP4 export from the browser editor | Not included; browser export is WebM where supported |
 
-## Deploy the AI video engine
+Do not place provider API tokens in HTML, GitHub Pages, or client-side JavaScript.
 
-GitHub Pages cannot run Python, FFmpeg or long-running AI video jobs. Deploy the upstream container separately using the [Render Blueprint](render.yaml):
+## Run the backend locally
 
-**[Deploy the public backend to Render](https://render.com/deploy?repo=https://github.com/RamizUddin404/video-tool-suite)**
+Python 3.11+ recommended.
 
-Review the service plan, disk, region and pricing before confirming. After deployment, copy its HTTPS URL into the editor's AI video generator panel.
+```bash
+cd backend
+python -m venv .venv
+# Linux/macOS:
+source .venv/bin/activate
+# Windows:
+# .venv\\Scripts\\activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
 
-**Security:** do not configure paid API keys or private credentials on a publicly accessible backend unless you have added and tested access control. Visitors may otherwise consume provider quota. Never commit secrets or generated videos.
+Open `http://127.0.0.1:8000/health` and `http://127.0.0.1:8000/docs`.
 
-## Upstream features
+### Configure an AI provider
 
-MoneyPrinterTurbo supports topic/keyword-based short-video generation through its configured AI and media providers. Some providers require API keys and rendering can consume paid quota and CPU/RAM. The backend's available AI generation features depend on its own configuration.
+The initial adapter targets the Replicate predictions API. Set these **on the backend host only**:
 
-## Attribution and license
+- `REPLICATE_API_TOKEN`
+- `REPLICATE_MODEL_VERSION` — a model version hash supported by your account
+- `ALLOWED_ORIGINS` — comma-separated exact origins allowed to call the API
 
-MoneyPrinterTurbo is maintained by its upstream author and distributed under MIT. This repository is a wrapper plus a separate browser editor; it is not an official upstream fork. Preserve upstream notices when redistributing upstream code. See [UPSTREAM-LICENSE](UPSTREAM-LICENSE). This repository is not affiliated with or endorsed by the upstream author.
+The model's input schema varies. Submit a JSON `inputs` object matching the selected model's documented schema. Without valid credentials and a model version, generation deliberately returns a clear configuration error; it does not fake a successful video.
+
+The first implementation keeps job state in process memory and polls the provider. It is suitable as a development scaffold, not a multi-worker production deployment. Add durable storage, a task queue, authentication, rate limits, quota controls, retention policy and output-file handling before public launch.
+
+## Deploy the website
+
+Enable GitHub Pages for the repository using **GitHub Actions** as the source. The workflow validates the static files and publishes the site on pushes to `main`.
+
+Expected URL: `https://ramizuddin404.github.io/video-tool-suite/`
+
+GitHub Pages serves static files only; it does not run the FastAPI backend. Deploy `backend/` to a Python-capable host separately, then set that backend's exact URL in the editor. Do not expose API secrets in the public website.
+
+## License
+
+Original code in this repository is provided under the MIT License in `LICENSE`. Third-party packages and hosted model providers retain their own licenses and terms. No upstream MoneyPrinterTurbo application code is required by this project.
