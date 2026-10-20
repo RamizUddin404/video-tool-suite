@@ -3,7 +3,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # Keep both secrets in backend host settings, never in browser code.
     openrouter_api_key: str = ""
     app_api_key: str = ""
     openrouter_video_model: str = "google/veo-3.1"
