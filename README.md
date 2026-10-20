@@ -10,34 +10,36 @@ pinned: false
 
 # LinkToon Studio
 
-This repository contains the static website and its own FastAPI backend. The backend uses Hugging Face Inference Providers for text-to-video generation; it does not depend on another person's application server.
+LinkToon contains a static website and a FastAPI backend. The backend submits video jobs to OpenRouter's asynchronous `/api/v1/videos` API, checks status, and stores the generated MP4 temporarily.
 
 ## Deploy your personal backend
 
-Create a **Docker Space** in your Hugging Face account with the exact Space name **LinkToon-API**. The website is preconfigured for the expected endpoint:
+Create a **Docker Space** in your Hugging Face account named **LinkToon-API**. The website is preset to the planned URL:
 
 `https://ramiz404-linktoon-api.hf.space`
 
-That URL is only live after you create the Space and deploy this repository's Dockerfile. The currently connected Hugging Face integration has read-only repository permission, so this assistant can prepare the code but cannot create/publish the Space on your behalf.
+That URL only works after you create the Space and deploy this repository's root `Dockerfile` and `backend/` directory. The connected GitHub integration can edit this repository but cannot create a Space in your Hugging Face account.
 
-Upload/copy the repository contents to the new Space, including the root `Dockerfile` and `backend/` directory. In **Space Settings → Variables and secrets**, set:
+In Space Settings → Variables and secrets, add:
 
-- `HF_TOKEN`: a Hugging Face user access token with **Inference Providers** permission.
-- `APP_API_KEY`: a long, random private key of your choice. Enter the same value in LinkToon Creator Studio when you use the site.
-- `HF_VIDEO_MODEL`: `Wan-AI/Wan2.2-TI2V-5B` (default).
-- `HF_PROVIDER`: `fal-ai` (default).
+- `OPENROUTER_API_KEY`: your OpenRouter API key.
+- `APP_API_KEY`: a separate long, random private key for the website to authenticate to your backend.
+- `OPENROUTER_VIDEO_MODEL`: defaults to `google/veo-3.1`.
 - `ALLOWED_ORIGINS`: `https://ramizuddin404.github.io`.
 
-Wait for the Space build to finish, then open `/health` on the Space URL. Paste/use the Space URL and your private access key in Creator Studio. Never put either secret into GitHub HTML or commit it to this repository.
+Keep both keys in backend secrets only. Never put the OpenRouter key into public HTML or commit it to GitHub. In Creator Studio, enter the Space URL and the same `APP_API_KEY`.
 
-## How it works and limits
+After the Space build finishes, test `https://ramiz404-linktoon-api.hf.space/health`.
 
-- Text/topic mode sends a 3D-cartoon generation prompt to the configured Hugging Face text-to-video model.
-- YouTube link mode tries to read available public captions and uses them as topic context. If captions are off, unavailable, or blocked, use Topic only mode and enter the subject/summary yourself.
-- The generation model typically produces a short clip. The selected duration and aspect ratio are prompts, not guarantees; automatic 3-minute multi-scene assembly and narration are not implemented yet.
-- Video inference may use paid quota/credits and depends on your token, model availability, provider limits and current pricing.
-- Jobs and generated files are held in local in-memory/temporary storage. Restarting the Space can clear job status and outputs; this is a starter personal backend, not a durable multi-user production service.
-- The backend requires a private `APP_API_KEY` and allows one generation job at a time to limit accidental spending.
+## Features and limits
+
+- Topic mode submits a new cartoon-style video prompt to the configured OpenRouter video model.
+- YouTube link mode tries to read public captions and uses them as context. If captions are unavailable, enter the topic or a transcript summary manually.
+- Video generation is asynchronous: the backend submits a job, polls for completion, and downloads the result.
+- Supported durations, aspect ratios, audio options, pricing, and model availability vary. This starter sends the model's default generation parameters; duration and ratio selections are prompt guidance, not guaranteed output settings. See the [OpenRouter video API docs](https://openrouter.ai/docs/api/api-reference/video-generation/create-videos) and [video model list](https://openrouter.ai/collections/video-models/).
+- Generation may spend OpenRouter credits. Check current model pricing before submitting a job.
+- Jobs and MP4 files are stored in memory and temporary local storage; restarting the Space can clear them. Only one job is accepted at a time.
+- Link mode uses available captions rather than copying the source footage. Adapt topics into original stories and use material you have permission to adapt.
 
 ## Local development
 
@@ -47,7 +49,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Set HF_TOKEN and APP_API_KEY in .env locally; never commit real values.
+# Set OPENROUTER_API_KEY and APP_API_KEY locally; never commit real values.
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
