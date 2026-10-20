@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     # Secret. Configure HF_TOKEN on your backend host / Hugging Face Space.
     hf_token: str = ""
+    app_api_key: str = ""
     # Official Hugging Face model ID; change only to a text-to-video model supported by the chosen provider.
     hf_video_model: str = "Wan-AI/Wan2.2-TI2V-5B"
     # Inference Providers provider name. The video model list is provider-dependent.
