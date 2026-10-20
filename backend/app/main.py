@@ -90,7 +90,7 @@ def generate_video_bytes(prompt: str, model: str) -> bytes:
         raise RuntimeError("HF_TOKEN is not configured on the backend host.")
     client = InferenceClient(
         provider=settings.hf_provider,
-        api_key=settings.hf_token,
+        token=settings.hf_token,
         timeout=settings.hf_request_timeout_seconds,
     )
     # Inference Providers text_to_video returns the generated video as bytes.
